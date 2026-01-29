@@ -14,7 +14,7 @@ export default function App() {
     setError('')
     
     try {
-      const response = await fetch('https://crm-multiempresa-backend.onrender.com/api/auth/login', {
+      const response = await fetch('https://app.alfredosimon.com:3000', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })

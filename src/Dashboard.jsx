@@ -13,7 +13,7 @@ export default function Dashboard() {
   const [respuestaMensaje, setRespuestaMensaje] = useState('')
 
   const token = localStorage.getItem('token')
-  const API_URL ='https://crm-multiempresa-backend.onrender.com/api'
+  const API_URL ='https://app.alfredosimon.com:3000/api'
 
   // Cargar estadísticas
   useEffect(() => {
