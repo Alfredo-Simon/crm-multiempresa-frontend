@@ -1,0 +1,179 @@
+<!-- FORMULARIO AHORALUZ - Integración perfecta con WordPress -->
+<style>
+    /* Reset de estilos WordPress */
+    #formulario-ahoraluz,
+    #formulario-ahoraluz * {
+        box-sizing: border-box;
+    }
+
+    #formulario-ahoraluz {
+        width: 100%;
+        padding: 30px;
+        background: transparent;
+        margin: 0;
+        overflow: visible;
+    }
+
+    #formulario-ahoraluz form {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    #formulario-ahoraluz input,
+    #formulario-ahoraluz textarea {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 12px !important;
+        border: 1px solid #ddd !important;
+        border-radius: 6px !important;
+        font-size: 14px !important;
+        font-family: inherit !important;
+        box-sizing: border-box !important;
+        transition: border-color 0.3s !important;
+    }
+
+    #formulario-ahoraluz button {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 14px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        #formulario-ahoraluz {
+            padding: 20px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        #formulario-ahoraluz {
+            padding: 15px;
+        }
+    }
+</style>
+
+<div id="formulario-ahoraluz">
+    <div id="mensaje-ahoraluz" style="padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; display: none;"></div>
+
+    <form id="contactForm-ahoraluz">
+        <!-- Nombre y Apellidos -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+            <div>
+                <label for="nombre-ahoraluz" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333; font-size: 14px;">Nombre *</label>
+                <input type="text" id="nombre-ahoraluz" name="nombre" required style="border-color: #ddd !important;" onmouseover="this.style.borderColor='#ffdb7e'" onmouseout="this.style.borderColor='#ddd'">
+            </div>
+            <div>
+                <label for="apellidos-ahoraluz" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333; font-size: 14px;">Apellidos *</label>
+                <input type="text" id="apellidos-ahoraluz" name="apellidos" required style="border-color: #ddd !important;" onmouseover="this.style.borderColor='#ffdb7e'" onmouseout="this.style.borderColor='#ddd'">
+            </div>
+        </div>
+
+        <!-- Email y Teléfono -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+            <div>
+                <label for="email-ahoraluz" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333; font-size: 14px;">Email *</label>
+                <input type="email" id="email-ahoraluz" name="email" required style="border-color: #ddd !important;" onmouseover="this.style.borderColor='#ffdb7e'" onmouseout="this.style.borderColor='#ddd'">
+            </div>
+            <div>
+                <label for="telefono-ahoraluz" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333; font-size: 14px;">Teléfono *</label>
+                <input type="tel" id="telefono-ahoraluz" name="telefono" required style="border-color: #ddd !important;" onmouseover="this.style.borderColor='#ffdb7e'" onmouseout="this.style.borderColor='#ddd'">
+            </div>
+        </div>
+
+        <!-- Mensaje -->
+        <div style="margin-bottom: 25px;">
+            <label for="mensaje" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333; font-size: 14px;">Mensaje *</label>
+            <textarea id="mensaje" name="mensaje" required style="min-height: 120px !important; resize: vertical !important; border-color: #ddd !important;" onmouseover="this.style.borderColor='#ffdb7e'" onmouseout="this.style.borderColor='#ddd'"></textarea>
+        </div>
+
+        <!-- Botón -->
+        <button type="submit" id="submitBtn-ahoraluz" style="background: #ffdb7e !important; color: #333 !important; border: none !important; border-radius: 6px !important; font-size: 16px !important; font-weight: 600 !important; cursor: pointer !important; transition: background 0.3s, transform 0.2s !important;" onmouseover="this.style.background='#ffc947'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#ffdb7e'; this.style.transform='translateY(0)'">Enviar Mensaje</button>
+    </form>
+</div>
+
+<script>
+    const form = document.getElementById('contactForm-ahoraluz');
+    const messageDiv = document.getElementById('mensaje-ahoraluz');
+    const submitBtn = document.getElementById('submitBtn-ahoraluz');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        messageDiv.style.display = 'none';
+        messageDiv.textContent = '';
+
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⏳ Enviando (puede tardar unos segundos)...';
+
+        try {
+            const formData = {
+                nombre: document.getElementById('nombre-ahoraluz').value,
+                apellidos: document.getElementById('apellidos-ahoraluz').value,
+                email: document.getElementById('email-ahoraluz').value,
+                telefono: document.getElementById('telefono-ahoraluz').value,
+                mensaje: document.getElementById('mensaje').value,
+                slug: 'ahoraluz-leads'
+            };
+
+            const response = await fetch('https://crm-multiempresa-backend.onrender.com/api/formularios/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
+                timeout: 60000  // 60 segundos de timeout
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                messageDiv.style.background = '#e8f5e9';
+                messageDiv.style.color = '#2e7d32';
+                messageDiv.style.border = '1px solid #66bb6a';
+                messageDiv.textContent = '✓ ¡Mensaje enviado correctamente! Nos pondremos en contacto pronto.';
+                messageDiv.style.display = 'block';
+                form.reset();
+                document.getElementById('mensaje').value = '';
+            } else {
+                messageDiv.style.background = '#ffebee';
+                messageDiv.style.color = '#c62828';
+                messageDiv.style.border = '1px solid #ef5350';
+                messageDiv.textContent = '✗ ' + (data.error || 'Error al enviar el mensaje');
+                messageDiv.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Error completo:', error);
+            messageDiv.style.background = '#ffebee';
+            messageDiv.style.color = '#c62828';
+            messageDiv.style.border = '1px solid #ef5350';
+            messageDiv.textContent = '✗ Error de conexión. Verifica tu conexión a internet y intenta de nuevo.';
+            messageDiv.style.display = 'block';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }
+    });
+
+    // Responsive dinámico
+    function makeFormResponsive() {
+        const form = document.getElementById('contactForm-ahoraluz');
+        const gridDivs = form.querySelectorAll('div[style*="grid-template-columns"]');
+        
+        gridDivs.forEach(div => {
+            if (window.innerWidth <= 768) {
+                div.style.gridTemplateColumns = '1fr !important';
+                div.style.gap = '15px !important';
+            } else {
+                div.style.gridTemplateColumns = '1fr 1fr !important';
+                div.style.gap = '20px !important';
+            }
+        });
+    }
+
+    makeFormResponsive();
+    window.addEventListener('resize', makeFormResponsive);
+</script>

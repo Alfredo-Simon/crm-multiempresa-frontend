@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Servidor Activo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .mensaje {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+        }
+        
+        h1 {
+            color: #27ae60;
+            margin: 0 0 20px 0;
+        }
+        
+        .checkmark {
+            font-size: 48px;
+            color: #27ae60;
+            margin-bottom: 20px;
+        }
+        
+        p {
+            color: #333;
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+        
+        .info {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="mensaje">
+        <div class="checkmark">✅</div>
+        <h1>Servidor Web Activo</h1>
+        <p>El servidor está funcionando correctamente.</p>
+        <div class="info">
+            <p><strong>Hora del servidor:</strong><br>
+            <span id="fecha"></span></p>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('fecha').textContent = new Date().toLocaleString('es-ES');
+    </script>
+</body>
+</html>
