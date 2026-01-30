@@ -11,9 +11,10 @@ export default function Dashboard() {
   const [paginaActual, setPaginaActual] = useState(1)
   const [editandoLead, setEditandoLead] = useState(null)
   const [respuestaMensaje, setRespuestaMensaje] = useState('')
+  const [leadSeleccionado, setLeadSeleccionado] = useState(null) // NUEVO: Para modal del mensaje
 
   const token = localStorage.getItem('token')
-  const API_URL ='/api'
+  const API_URL = '/api'
 
   // Cargar estadísticas
   useEffect(() => {
@@ -80,6 +81,14 @@ export default function Dashboard() {
     }
   }
 
+  // NUEVO: Función para truncar mensaje
+  const truncarMensaje = (mensaje, maxCaracteres = 50) => {
+    if (!mensaje) return '-'
+    return mensaje.length > maxCaracteres 
+      ? mensaje.substring(0, maxCaracteres) + '...' 
+      : mensaje
+  }
+
   if (loading && !stats) {
     return <div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>
   }
@@ -143,6 +152,7 @@ export default function Dashboard() {
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Nombre</th>
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Email</th>
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Teléfono</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Mensaje</th>
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Estado</th>
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Origen</th>
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Fecha</th>
@@ -155,6 +165,20 @@ export default function Dashboard() {
                 <td style={{ padding: '12px' }}>{lead.nombre} {lead.apellidos}</td>
                 <td style={{ padding: '12px' }}>{lead.email}</td>
                 <td style={{ padding: '12px' }}>{lead.telefono}</td>
+                {/* NUEVO: Columna Mensaje */}
+                <td 
+                  style={{ 
+                    padding: '12px',
+                    maxWidth: '200px',
+                    cursor: 'pointer',
+                    color: '#0066cc',
+                    textDecoration: 'underline'
+                  }}
+                  onClick={() => setLeadSeleccionado(lead)}
+                  title={lead.mensaje || 'Sin mensaje'}
+                >
+                  {truncarMensaje(lead.mensaje)}
+                </td>
                 <td style={{ padding: '12px' }}>
                   <span style={{
                     background: lead.estado === 'contestado' ? '#c8e6c9' : '#ffe0b2',
@@ -217,6 +241,130 @@ export default function Dashboard() {
       {leads.length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
           No hay leads para mostrar
+        </div>
+      )}
+
+      {/* NUEVO: MODAL PARA VER MENSAJE COMPLETO */}
+      {leadSeleccionado && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+          onClick={() => setLeadSeleccionado(null)}
+        >
+          <div 
+            style={{
+              background: 'white',
+              padding: '30px',
+              borderRadius: '8px',
+              maxWidth: '600px',
+              width: '90%',
+              boxShadow: '0 5px 20px rgba(0, 0, 0, 0.3)',
+              maxHeight: '80vh',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header del modal */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, color: '#333' }}>Detalles del Lead</h2>
+              <button
+                onClick={() => setLeadSeleccionado(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#999'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Información del lead */}
+            <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '4px', marginBottom: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#999', fontWeight: 'bold' }}>NOMBRE</p>
+                  <p style={{ margin: '5px 0 0 0', color: '#333' }}>{leadSeleccionado.nombre} {leadSeleccionado.apellidos}</p>
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#999', fontWeight: 'bold' }}>EMAIL</p>
+                  <p style={{ margin: '5px 0 0 0', color: '#0066cc', wordBreak: 'break-all' }}>{leadSeleccionado.email}</p>
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#999', fontWeight: 'bold' }}>TELÉFONO</p>
+                  <p style={{ margin: '5px 0 0 0', color: '#333' }}>{leadSeleccionado.telefono}</p>
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#999', fontWeight: 'bold' }}>FECHA</p>
+                  <p style={{ margin: '5px 0 0 0', color: '#333' }}>{new Date(leadSeleccionado.created_at).toLocaleDateString('es-ES')}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Mensaje */}
+            <div style={{ background: '#f0f4f8', padding: '15px', borderRadius: '4px', borderLeft: '4px solid #2196f3', marginBottom: '20px' }}>
+              <p style={{ margin: 0, fontSize: '12px', color: '#999', fontWeight: 'bold', marginBottom: '10px' }}>MENSAJE</p>
+              <p style={{ 
+                margin: 0, 
+                color: '#333', 
+                lineHeight: '1.6',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
+              }}>
+                {leadSeleccionado.mensaje || 'Sin mensaje'}
+              </p>
+            </div>
+
+            {/* Estado y Origen */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
+              <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '4px' }}>
+                <p style={{ margin: 0, fontSize: '12px', color: '#999', fontWeight: 'bold', marginBottom: '8px' }}>ESTADO</p>
+                <span style={{
+                  background: leadSeleccionado.estado === 'contestado' ? '#c8e6c9' : '#ffe0b2',
+                  padding: '6px 12px',
+                  borderRadius: '4px',
+                  textTransform: 'capitalize',
+                  fontWeight: 'bold'
+                }}>
+                  {leadSeleccionado.estado}
+                </span>
+              </div>
+              <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '4px' }}>
+                <p style={{ margin: 0, fontSize: '12px', color: '#999', fontWeight: 'bold', marginBottom: '8px' }}>ORIGEN</p>
+                <p style={{ margin: 0, color: '#333', textTransform: 'capitalize' }}>{leadSeleccionado.origen}</p>
+              </div>
+            </div>
+
+            {/* Botón cerrar */}
+            <button
+              onClick={() => setLeadSeleccionado(null)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#2196f3',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              Cerrar
+            </button>
+          </div>
         </div>
       )}
     </div>
