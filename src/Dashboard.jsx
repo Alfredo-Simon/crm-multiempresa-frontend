@@ -35,19 +35,29 @@ export default function Dashboard() {
 
   // Obtener usuario logueado - CORREGIDO: Depende de token
   useEffect(() => {
-    if (!token) return;
+    console.log('🔄 useEffect ejecutado, token:', token ? 'SÍ' : 'NO');
+    if (!token) {
+      console.log('⚠️ No hay token, retornando');
+      return;
+    }
     
     const fetchMe = async () => {
       try {
+        console.log('📡 Llamando a /auth/me...');
         const response = await fetch(`${API_BASE}/auth/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
+        console.log('📡 Respuesta recibida, status:', response.status);
         const data = await response.json();
+        console.log('📊 Datos parseados:', data);
         if (data.success) {
+          console.log('✅ Usuario obtenido:', data.usuario);
           setUsuarioLogueado(data.usuario);
+        } else {
+          console.log('❌ Error en respuesta:', data);
         }
       } catch (error) {
-        console.error('Error:', error);
+        console.error('❌ Error en fetch /auth/me:', error);
       }
     };
     fetchMe();
