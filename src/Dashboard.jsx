@@ -18,20 +18,28 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
   const [cargando, setCargando] = useState(false);
   const [usuarioLogueado, setUsuarioLogueado] = useState(initialUsuario || null);
   
-  // Nuevo: Estados para modal de usuario
+  // Estados para modal de usuario
   const [modalUsuario, setModalUsuario] = useState(false);
   const [usuarioEditando, setUsuarioEditando] = useState(null);
   const [formUsuario, setFormUsuario] = useState({
     nombre: '',
     email: '',
     password: '',
-    role: 'admin',
+    role: 'comercial',
     empresa_id: null,
     activo: true
   });
 
   const API_BASE = 'https://app.alfredosimon.com/api';
   const token = localStorage.getItem('token');
+
+  // ✅ NUEVOS ROLES DISPONIBLES
+  const ROLES_DISPONIBLES = {
+    superadmin: '🔑 Superadmin',
+    ceo: '👔 CEO',
+    directivo: '📊 Directivo',
+    comercial: '💼 Comercial'
+  };
 
   // Obtener estadísticas
   useEffect(() => {
@@ -53,9 +61,9 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
     fetchStats();
   }, [token, API_BASE]);
 
-  // Obtener empresas (solo para superadmin)
+  // Obtener empresas (solo para superadmin y CEO)
   useEffect(() => {
-    if (usuarioLogueado?.role === 'superadmin' && token) {
+    if (['superadmin', 'ceo'].includes(usuarioLogueado?.role) && token) {
       const fetchEmpresas = async () => {
         try {
           const response = await fetch(`${API_BASE}/dashboard/empresas`, {
@@ -108,7 +116,7 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
       if (data.success) {
         setUsuarios(data.usuarios);
       } else {
-        alert(data.error || 'Solo superadmin puede ver usuarios');
+        alert(data.error || 'Error al cargar usuarios');
       }
     } catch (error) {
       console.error('Error cargando usuarios:', error);
@@ -128,7 +136,7 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
   useEffect(() => {
     if (tabActivo === 'usuarios') {
       cargarUsuarios();
-    } else {
+    } else if (tabActivo === 'leads') {
       cargarLeads();
     }
   }, [tabActivo, token]);
@@ -154,12 +162,20 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
   // Funciones para modal de usuario
   const abrirModalCrear = () => {
     setUsuarioEditando(null);
+    
+    // Roles que puede crear el usuario actual
+    let rolPorDefecto = 'comercial';
+    if (usuarioLogueado?.role === 'ceo') {
+      // CEO solo puede crear Directivo o Comercial
+      rolPorDefecto = 'comercial';
+    }
+    
     setFormUsuario({
       nombre: '',
       email: '',
       password: '',
-      role: 'admin',
-      empresa_id: null,
+      role: rolPorDefecto,
+      empresa_id: usuarioLogueado?.role === 'ceo' ? usuarioLogueado.empresa_id : null,
       activo: true
     });
     setModalUsuario(true);
@@ -248,13 +264,16 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
     try {
       const response = await fetch(`${API_BASE}/usuarios/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       const data = await response.json();
 
       if (data.success) {
-        alert('Usuario eliminado');
+        alert('Usuario eliminado correctamente');
         cargarUsuarios();
       } else {
         alert(data.error || 'Error al eliminar usuario');
@@ -263,6 +282,29 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
       console.error('Error eliminando usuario:', error);
       alert('Error al eliminar usuario');
     }
+  };
+
+  // 🔐 Función auxiliar: ¿Puede este usuario crear/editar roles?
+  const puedeCrearRol = (rol) => {
+    if (usuarioLogueado?.role === 'superadmin') {
+      return true; // Superadmin puede crear cualquier rol
+    }
+    if (usuarioLogueado?.role === 'ceo') {
+      // CEO solo puede crear Directivo y Comercial
+      return ['directivo', 'comercial'].includes(rol);
+    }
+    return false;
+  };
+
+  // 🔐 Función auxiliar: ¿Qué roles puede crear el usuario actual?
+  const getRolesDisponiblesParaCrear = () => {
+    if (usuarioLogueado?.role === 'superadmin') {
+      return Object.keys(ROLES_DISPONIBLES);
+    }
+    if (usuarioLogueado?.role === 'ceo') {
+      return ['directivo', 'comercial'];
+    }
+    return [];
   };
 
   return (
@@ -275,26 +317,39 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
         </div>
         <div className="header-right">
           <span className="role-badge">
-            {usuarioLogueado?.role === 'superadmin' ? '🔑 Superadmin' : '👤 Admin'}
+            {ROLES_DISPONIBLES[usuarioLogueado?.role] || '👤 Usuario'}
           </span>
           <button onClick={handleLogout} className="btn-logout">Logout</button>
         </div>
       </div>
 
-      {/* TABS */}
+      {/* TABS - Mostrar según rol */}
       <div className="dashboard-tabs">
+        {/* Tab: LEADS - Lo ven TODOS */}
         <button 
           className={`tab-btn ${tabActivo === 'leads' ? 'active' : ''}`}
           onClick={() => setTabActivo('leads')}
         >
           📋 Leads
         </button>
-        {usuarioLogueado?.role === 'superadmin' && (
+
+        {/* Tab: USUARIOS - Lo ven SUPERADMIN y CEO */}
+        {['superadmin', 'ceo'].includes(usuarioLogueado?.role) && (
           <button 
             className={`tab-btn ${tabActivo === 'usuarios' ? 'active' : ''}`}
             onClick={() => setTabActivo('usuarios')}
           >
             👥 Usuarios
+          </button>
+        )}
+
+        {/* Tab: EMPRESAS - Solo SUPERADMIN */}
+        {usuarioLogueado?.role === 'superadmin' && (
+          <button 
+            className={`tab-btn ${tabActivo === 'empresas' ? 'active' : ''}`}
+            onClick={() => setTabActivo('empresas')}
+          >
+            🏢 Empresas
           </button>
         )}
       </div>
@@ -306,6 +361,7 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
           <div className="panel-general">
             <h2>📊 Panel General</h2>
             
+            {/* Selector de empresa solo para SUPERADMIN */}
             {usuarioLogueado?.role === 'superadmin' && (
               <div className="selector-empresa">
                 <label>Filtrar por empresa:</label>
@@ -385,7 +441,7 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
                       <th>Empresa</th>
                       <th>Mensaje</th>
                       <th>Estado</th>
-                      <th>Acciones</th>
+                      <th>Fecha</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -399,22 +455,13 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
                         <td>
                           <span className="empresa-badge">{lead.empresa_nombre || 'N/A'}</span>
                         </td>
-                        <td className="mensaje-cell">
-                          {truncarMensaje(lead.mensaje)}
-                        </td>
+                        <td className="mensaje-cell">{truncarMensaje(lead.mensaje)}</td>
                         <td>
                           <span className={`estado-badge estado-${lead.estado}`}>
-                            {lead.estado === 'recibido' ? '📬 Pendiente' : '✅ Contestado'}
+                            {lead.estado === 'pendiente' ? '⏳' : '✅'} {lead.estado}
                           </span>
                         </td>
-                        <td className="acciones-cell">
-                          <button 
-                            onClick={() => setLeadSeleccionado(lead)}
-                            className="btn-ver"
-                          >
-                            Ver ficha
-                          </button>
-                        </td>
+                        <td>{formatearFecha(lead.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -425,20 +472,19 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
         </div>
       )}
 
-      {/* TAB: USUARIOS */}
-      {tabActivo === 'usuarios' && (
+      {/* TAB: USUARIOS - Solo SUPERADMIN y CEO */}
+      {tabActivo === 'usuarios' && ['superadmin', 'ceo'].includes(usuarioLogueado?.role) && (
         <div className="tab-content">
           <div className="seccion-usuarios">
-            <h2>👥 Gestión de Usuarios</h2>
-            
-            <button className="btn-crear-usuario" onClick={abrirModalCrear}>
-              + Crear nuevo usuario
-            </button>
+            <div className="usuarios-header">
+              <h2>👥 Gestión de Usuarios</h2>
+              <button onClick={abrirModalCrear} className="btn-crear">+ Crear Usuario</button>
+            </div>
 
             {cargando ? (
-              <p className="loading">Cargando usuarios...</p>
+              <p className="loading">Cargando...</p>
             ) : usuarios.length === 0 ? (
-              <p className="no-data">No hay usuarios registrados</p>
+              <p className="no-data">No hay usuarios para mostrar</p>
             ) : (
               <div className="tabla-wrapper">
                 <table className="usuarios-table">
@@ -458,8 +504,8 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
                         <td><strong>{usuario.nombre}</strong></td>
                         <td>{usuario.email}</td>
                         <td>
-                          <span className={`role-badge role-${usuario.role}`}>
-                            {usuario.role === 'superadmin' ? '🔑 Superadmin' : usuario.role === 'admin' ? '👤 Admin' : '👁️ Viewer'}
+                          <span className="role-badge-table">
+                            {ROLES_DISPONIBLES[usuario.role] || usuario.role}
                           </span>
                         </td>
                         <td>{usuario.nombre_empresa || 'N/A'}</td>
@@ -470,16 +516,18 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
                         </td>
                         <td className="acciones-cell">
                           <button 
+                            onClick={() => abrirModalEditar(usuario)} 
                             className="btn-editar"
-                            onClick={() => abrirModalEditar(usuario)}
+                            title="Editar usuario"
                           >
-                            Editar
+                            ✏️
                           </button>
                           <button 
+                            onClick={() => eliminarUsuario(usuario.id)} 
                             className="btn-eliminar"
-                            onClick={() => eliminarUsuario(usuario.id)}
+                            title="Eliminar usuario"
                           >
-                            Eliminar
+                            🗑️
                           </button>
                         </td>
                       </tr>
@@ -492,181 +540,120 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
         </div>
       )}
 
-      {/* MODAL: FICHA DE LEAD */}
-      {leadSeleccionado && (
-        <div className="modal-overlay" onClick={() => setLeadSeleccionado(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>📱 Ficha de Lead</h2>
-              <button className="btn-close" onClick={() => setLeadSeleccionado(null)}>✕</button>
-            </div>
-
-            <div className="modal-body">
-              <div className="modal-section">
-                <h3>📋 Datos Personales</h3>
-                <div className="data-grid">
-                  <div className="data-item">
-                    <label>Nombre:</label>
-                    <p>{leadSeleccionado.nombre} {leadSeleccionado.apellidos}</p>
-                  </div>
-                  <div className="data-item">
-                    <label>Email:</label>
-                    <p>{leadSeleccionado.email}</p>
-                  </div>
-                  <div className="data-item">
-                    <label>Teléfono:</label>
-                    <p>{leadSeleccionado.telefono}</p>
-                  </div>
-                  <div className="data-item">
-                    <label>Empresa:</label>
-                    <p>{leadSeleccionado.empresa_nombre || 'N/A'}</p>
-                  </div>
-                  <div className="data-item">
-                    <label>Origen:</label>
-                    <p>{leadSeleccionado.origen}</p>
-                  </div>
-                  <div className="data-item">
-                    <label>Fecha Registro:</label>
-                    <p>{formatearFecha(leadSeleccionado.created_at)}</p>
-                  </div>
-                </div>
-              </div>
-
-              {leadSeleccionado.mensaje && (
-                <div className="modal-section">
-                  <h3>💬 Mensaje Original</h3>
-                  <div className="mensaje-content">
-                    {leadSeleccionado.mensaje}
-                  </div>
-                </div>
-              )}
-
-              <div className="modal-section">
-                <h3>📊 Estado</h3>
-                <div className="estado-selector">
-                  <select defaultValue={leadSeleccionado.estado} className="estado-select">
-                    <option value="recibido">📬 Pendiente de respuesta</option>
-                    <option value="contestado">✅ Contestado</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="modal-section">
-                <h3>📧 Responder al Lead</h3>
-                <textarea 
-                  placeholder="Escribe tu respuesta aquí..."
-                  className="respuesta-textarea"
-                />
-                <div className="responder-buttons">
-                  <button className="btn-guardar">💾 Guardar respuesta</button>
-                  <button className="btn-enviar">📧 Enviar por email</button>
-                </div>
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <button className="btn-cerrar" onClick={() => setLeadSeleccionado(null)}>Cerrar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* MODAL: CREAR/EDITAR USUARIO */}
       {modalUsuario && (
         <div className="modal-overlay" onClick={cerrarModal}>
-          <div className="modal-content modal-usuario" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>{usuarioEditando ? '✏️ Editar Usuario' : '➕ Crear Nuevo Usuario'}</h2>
-              <button className="btn-close" onClick={cerrarModal}>✕</button>
+              <h2>{usuarioEditando ? '✏️ Editar Usuario' : '➕ Crear Usuario'}</h2>
+              <button onClick={cerrarModal} className="btn-close">✕</button>
             </div>
 
-            <div className="modal-body">
-              <form onSubmit={guardarUsuario}>
-                <div className="form-group">
-                  <label>Nombre *</label>
-                  <input
-                    type="text"
-                    name="nombre"
-                    value={formUsuario.nombre}
-                    onChange={manejarCambioForm}
-                    placeholder="Nombre del usuario"
-                    required
-                  />
-                </div>
+            <form onSubmit={guardarUsuario} className="modal-form">
+              <div className="form-group">
+                <label htmlFor="nombre">Nombre *</label>
+                <input
+                  type="text"
+                  id="nombre"
+                  name="nombre"
+                  value={formUsuario.nombre}
+                  onChange={manejarCambioForm}
+                  placeholder="Nombre completo"
+                  required
+                />
+              </div>
 
-                <div className="form-group">
-                  <label>Email *</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formUsuario.email}
-                    onChange={manejarCambioForm}
-                    placeholder="correo@ejemplo.com"
-                    required
-                  />
-                </div>
+              <div className="form-group">
+                <label htmlFor="email">Email *</label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formUsuario.email}
+                  onChange={manejarCambioForm}
+                  placeholder="email@ejemplo.com"
+                  required
+                />
+              </div>
 
-                <div className="form-group">
-                  <label>Contraseña {usuarioEditando ? '(dejar vacío para no cambiar)' : '*'}</label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={formUsuario.password}
-                    onChange={manejarCambioForm}
-                    placeholder="Contraseña"
-                    required={!usuarioEditando}
-                  />
-                </div>
+              <div className="form-group">
+                <label htmlFor="password">Contraseña {!usuarioEditando && '*'}</label>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  value={formUsuario.password}
+                  onChange={manejarCambioForm}
+                  placeholder={usuarioEditando ? 'Dejar en blanco para no cambiar' : 'Nueva contraseña'}
+                  required={!usuarioEditando}
+                />
+              </div>
 
+              <div className="form-group">
+                <label htmlFor="role">Rol *</label>
+                <select
+                  id="role"
+                  name="role"
+                  value={formUsuario.role}
+                  onChange={manejarCambioForm}
+                  required
+                >
+                  {getRolesDisponiblesParaCrear().map(rol => (
+                    <option key={rol} value={rol}>
+                      {ROLES_DISPONIBLES[rol]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Mostrar selector de empresa solo para SUPERADMIN */}
+              {usuarioLogueado?.role === 'superadmin' && (
                 <div className="form-group">
-                  <label>Rol *</label>
+                  <label htmlFor="empresa_id">Empresa</label>
                   <select
-                    name="role"
-                    value={formUsuario.role}
-                    onChange={manejarCambioForm}
-                  >
-                    <option value="admin">👤 Admin</option>
-                    <option value="viewer">👁️ Viewer</option>
-                    <option value="superadmin">🔑 Superadmin</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Empresa</label>
-                  <select
+                    id="empresa_id"
                     name="empresa_id"
                     value={formUsuario.empresa_id || ''}
                     onChange={manejarCambioForm}
                   >
-                    <option value="">Sin empresa asignada</option>
+                    <option value="">Ninguna (Superadmin)</option>
                     {empresas.map(emp => (
                       <option key={emp.id} value={emp.id}>{emp.nombre}</option>
                     ))}
                   </select>
                 </div>
+              )}
 
-                <div className="form-group checkbox">
-                  <label>
-                    <input
-                      type="checkbox"
-                      name="activo"
-                      checked={formUsuario.activo}
-                      onChange={manejarCambioForm}
-                    />
-                    Activo
-                  </label>
+              {/* Para CEO, la empresa está predeterminada */}
+              {usuarioLogueado?.role === 'ceo' && (
+                <div className="form-group">
+                  <label>Empresa</label>
+                  <div className="empresa-readonly">
+                    {empresas.find(e => e.id === formUsuario.empresa_id)?.nombre || 'Tu Empresa'}
+                  </div>
                 </div>
+              )}
 
-                <div className="form-buttons">
-                  <button type="submit" className="btn-guardar">
-                    {usuarioEditando ? 'Actualizar Usuario' : 'Crear Usuario'}
-                  </button>
-                  <button type="button" className="btn-cancelar" onClick={cerrarModal}>
-                    Cancelar
-                  </button>
-                </div>
-              </form>
-            </div>
+              <div className="form-group checkbox">
+                <label htmlFor="activo">
+                  <input
+                    type="checkbox"
+                    id="activo"
+                    name="activo"
+                    checked={formUsuario.activo}
+                    onChange={manejarCambioForm}
+                  />
+                  Activo
+                </label>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" onClick={cerrarModal} className="btn-cancelar">Cancelar</button>
+                <button type="submit" className="btn-guardar">
+                  {usuarioEditando ? 'Actualizar' : 'Crear'} Usuario
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
