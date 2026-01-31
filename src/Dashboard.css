@@ -657,6 +657,10 @@
   padding: 25px;
 }
 
+.modal-form {
+  padding: 0 15px;
+}
+
 .modal-section {
   margin-bottom: 25px;
 }
