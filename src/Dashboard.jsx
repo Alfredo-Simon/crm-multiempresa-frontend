@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 
 export default function Dashboard() {
-  const [tabActivo, setTabActivo] = useState('leads'); // 'leads' o 'usuarios'
+  const [tabActivo, setTabActivo] = useState('leads');
   const [leads, setLeads] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [estadisticas, setEstadisticas] = useState({
@@ -17,6 +17,18 @@ export default function Dashboard() {
   const [leadSeleccionado, setLeadSeleccionado] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [usuarioLogueado, setUsuarioLogueado] = useState(null);
+  
+  // Nuevo: Estados para modal de usuario
+  const [modalUsuario, setModalUsuario] = useState(false);
+  const [usuarioEditando, setUsuarioEditando] = useState(null);
+  const [formUsuario, setFormUsuario] = useState({
+    nombre: '',
+    email: '',
+    password: '',
+    role: 'admin',
+    empresa_id: null,
+    activo: true
+  });
 
   const API_BASE = 'https://app.alfredosimon.com/api';
   const token = localStorage.getItem('token');
@@ -153,6 +165,120 @@ export default function Dashboard() {
     });
   };
 
+  // Funciones para modal de usuario
+  const abrirModalCrear = () => {
+    setUsuarioEditando(null);
+    setFormUsuario({
+      nombre: '',
+      email: '',
+      password: '',
+      role: 'admin',
+      empresa_id: null,
+      activo: true
+    });
+    setModalUsuario(true);
+  };
+
+  const abrirModalEditar = (usuario) => {
+    setUsuarioEditando(usuario);
+    setFormUsuario({
+      nombre: usuario.nombre,
+      email: usuario.email,
+      password: '',
+      role: usuario.role,
+      empresa_id: usuario.empresa_id,
+      activo: usuario.activo
+    });
+    setModalUsuario(true);
+  };
+
+  const cerrarModal = () => {
+    setModalUsuario(false);
+    setUsuarioEditando(null);
+  };
+
+  const manejarCambioForm = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormUsuario(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : (name === 'empresa_id' ? (value ? parseInt(value) : null) : value)
+    }));
+  };
+
+  const guardarUsuario = async (e) => {
+    e.preventDefault();
+
+    if (!formUsuario.nombre || !formUsuario.email) {
+      alert('Nombre y email son requeridos');
+      return;
+    }
+
+    if (!usuarioEditando && !formUsuario.password) {
+      alert('La contraseña es requerida para nuevo usuario');
+      return;
+    }
+
+    try {
+      const url = usuarioEditando 
+        ? `${API_BASE}/usuarios/${usuarioEditando.id}`
+        : `${API_BASE}/usuarios`;
+
+      const metodo = usuarioEditando ? 'PUT' : 'POST';
+
+      const datosEnvio = { ...formUsuario };
+      if (!datosEnvio.password) {
+        delete datosEnvio.password;
+      }
+
+      const response = await fetch(url, {
+        method: metodo,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(datosEnvio)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(usuarioEditando ? 'Usuario actualizado' : 'Usuario creado');
+        cerrarModal();
+        cargarUsuarios();
+      } else {
+        alert(data.error || 'Error al guardar usuario');
+      }
+    } catch (error) {
+      console.error('Error guardando usuario:', error);
+      alert('Error al guardar usuario');
+    }
+  };
+
+  const eliminarUsuario = async (id) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/usuarios/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('Usuario eliminado');
+        cargarUsuarios();
+      } else {
+        alert(data.error || 'Error al eliminar usuario');
+      }
+    } catch (error) {
+      console.error('Error eliminando usuario:', error);
+      alert('Error al eliminar usuario');
+    }
+  };
+
   return (
     <div className="dashboard-container">
       {/* HEADER */}
@@ -194,7 +320,6 @@ export default function Dashboard() {
           <div className="panel-general">
             <h2>📊 Panel General</h2>
             
-            {/* Selector de empresa */}
             {usuarioLogueado?.role === 'superadmin' && (
               <div className="selector-empresa">
                 <label>Filtrar por empresa:</label>
@@ -207,7 +332,6 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Cards de estadísticas */}
             <div className="stats-grid">
               <div className="stat-card">
                 <div className="stat-icon">📈</div>
@@ -321,7 +445,9 @@ export default function Dashboard() {
           <div className="seccion-usuarios">
             <h2>👥 Gestión de Usuarios</h2>
             
-            <button className="btn-crear-usuario">+ Crear nuevo usuario</button>
+            <button className="btn-crear-usuario" onClick={abrirModalCrear}>
+              + Crear nuevo usuario
+            </button>
 
             {cargando ? (
               <p className="loading">Cargando usuarios...</p>
@@ -357,8 +483,18 @@ export default function Dashboard() {
                           </span>
                         </td>
                         <td className="acciones-cell">
-                          <button className="btn-editar">Editar</button>
-                          <button className="btn-eliminar">Eliminar</button>
+                          <button 
+                            className="btn-editar"
+                            onClick={() => abrirModalEditar(usuario)}
+                          >
+                            Editar
+                          </button>
+                          <button 
+                            className="btn-eliminar"
+                            onClick={() => eliminarUsuario(usuario.id)}
+                          >
+                            Eliminar
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -380,7 +516,6 @@ export default function Dashboard() {
             </div>
 
             <div className="modal-body">
-              {/* Datos personales */}
               <div className="modal-section">
                 <h3>📋 Datos Personales</h3>
                 <div className="data-grid">
@@ -411,7 +546,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Mensaje original */}
               {leadSeleccionado.mensaje && (
                 <div className="modal-section">
                   <h3>💬 Mensaje Original</h3>
@@ -421,7 +555,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Estado */}
               <div className="modal-section">
                 <h3>📊 Estado</h3>
                 <div className="estado-selector">
@@ -432,7 +565,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Responder */}
               <div className="modal-section">
                 <h3>📧 Responder al Lead</h3>
                 <textarea 
@@ -448,6 +580,106 @@ export default function Dashboard() {
 
             <div className="modal-footer">
               <button className="btn-cerrar" onClick={() => setLeadSeleccionado(null)}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CREAR/EDITAR USUARIO */}
+      {modalUsuario && (
+        <div className="modal-overlay" onClick={cerrarModal}>
+          <div className="modal-content modal-usuario" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{usuarioEditando ? '✏️ Editar Usuario' : '➕ Crear Nuevo Usuario'}</h2>
+              <button className="btn-close" onClick={cerrarModal}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <form onSubmit={guardarUsuario}>
+                <div className="form-group">
+                  <label>Nombre *</label>
+                  <input
+                    type="text"
+                    name="nombre"
+                    value={formUsuario.nombre}
+                    onChange={manejarCambioForm}
+                    placeholder="Nombre del usuario"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Email *</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formUsuario.email}
+                    onChange={manejarCambioForm}
+                    placeholder="correo@ejemplo.com"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Contraseña {usuarioEditando ? '(dejar vacío para no cambiar)' : '*'}</label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={formUsuario.password}
+                    onChange={manejarCambioForm}
+                    placeholder="Contraseña"
+                    required={!usuarioEditando}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Rol *</label>
+                  <select
+                    name="role"
+                    value={formUsuario.role}
+                    onChange={manejarCambioForm}
+                  >
+                    <option value="admin">👤 Admin</option>
+                    <option value="viewer">👁️ Viewer</option>
+                    <option value="superadmin">🔑 Superadmin</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Empresa</label>
+                  <select
+                    name="empresa_id"
+                    value={formUsuario.empresa_id || ''}
+                    onChange={manejarCambioForm}
+                  >
+                    <option value="">Sin empresa asignada</option>
+                    {empresas.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group checkbox">
+                  <label>
+                    <input
+                      type="checkbox"
+                      name="activo"
+                      checked={formUsuario.activo}
+                      onChange={manejarCambioForm}
+                    />
+                    Activo
+                  </label>
+                </div>
+
+                <div className="form-buttons">
+                  <button type="submit" className="btn-guardar">
+                    {usuarioEditando ? 'Actualizar Usuario' : 'Crear Usuario'}
+                  </button>
+                  <button type="button" className="btn-cancelar" onClick={cerrarModal}>
+                    Cancelar
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
