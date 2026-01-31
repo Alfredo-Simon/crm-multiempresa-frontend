@@ -1,372 +1,457 @@
-import React from 'react'
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react';
+import './Dashboard.css';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState(null)
-  const [leads, setLeads] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState('')
-  const [filtroOrigen, setFiltroOrigen] = useState('')
-  const [paginaActual, setPaginaActual] = useState(1)
-  const [editandoLead, setEditandoLead] = useState(null)
-  const [respuestaMensaje, setRespuestaMensaje] = useState('')
-  const [leadSeleccionado, setLeadSeleccionado] = useState(null) // NUEVO: Para modal del mensaje
+  const [tabActivo, setTabActivo] = useState('leads'); // 'leads' o 'usuarios'
+  const [leads, setLeads] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
+  const [estadisticas, setEstadisticas] = useState({
+    total: 0,
+    pendientes: 0,
+    contestados: 0,
+    porcentaje_contestados: 0
+  });
+  const [busqueda, setBusqueda] = useState('');
+  const [empresaFiltro, setEmpresaFiltro] = useState('todas');
+  const [empresas, setEmpresas] = useState([]);
+  const [leadSeleccionado, setLeadSeleccionado] = useState(null);
+  const [cargando, setCargando] = useState(false);
+  const [usuarioLogueado, setUsuarioLogueado] = useState(null);
 
-  const token = localStorage.getItem('token')
-  const API_URL = '/api'
+  const API_BASE = 'http://localhost:5000/api';
+  const token = localStorage.getItem('token');
 
-  // Cargar estadísticas
+  // Obtener usuario logueado
   useEffect(() => {
-    cargarDatos()
-  }, [filtroEstado, filtroOrigen, paginaActual])
-
-  const cargarDatos = async () => {
-    setLoading(true)
-    setError('')
-    
-    try {
-      // Obtener estadísticas
-      const statsRes = await fetch(`${API_URL}/dashboard/stats`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      const statsData = await statsRes.json()
-      if (statsData.success) {
-        setStats(statsData.stats)
+    const fetchMe = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data.success) {
+          setUsuarioLogueado(data.usuario);
+        }
+      } catch (error) {
+        console.error('Error:', error);
       }
+    };
+    fetchMe();
+  }, []);
 
-      // Obtener leads
-      let url = `${API_URL}/dashboard/leads?pagina=${paginaActual}`
-      if (filtroEstado) url += `&estado=${filtroEstado}`
-      if (filtroOrigen) url += `&origen=${filtroOrigen}`
-
-      const leadsRes = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      const leadsData = await leadsRes.json()
-      if (leadsData.success) {
-        setLeads(leadsData.leads)
+  // Obtener estadísticas
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/dashboard/stats`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data.success) {
+          setEstadisticas(data.stats);
+        }
+      } catch (error) {
+        console.error('Error cargando estadísticas:', error);
       }
-    } catch (err) {
-      setError('Error al cargar datos: ' + err.message)
-    } finally {
-      setLoading(false)
+    };
+    fetchStats();
+  }, []);
+
+  // Obtener empresas (solo para superadmin)
+  useEffect(() => {
+    if (usuarioLogueado?.role === 'superadmin') {
+      const fetchEmpresas = async () => {
+        try {
+          const response = await fetch(`${API_BASE}/dashboard/empresas`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await response.json();
+          if (data.success) {
+            setEmpresas(data.empresas);
+          }
+        } catch (error) {
+          console.error('Error cargando empresas:', error);
+        }
+      };
+      fetchEmpresas();
     }
-  }
+  }, [usuarioLogueado]);
 
-  const cambiarEstado = async (leadId, nuevoEstado) => {
+  // Cargar leads
+  const cargarLeads = async () => {
+    setCargando(true);
     try {
-      const res = await fetch(`${API_URL}/dashboard/leads/${leadId}/estado`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          estado: nuevoEstado,
-          respuesta_mensaje: respuestaMensaje
-        })
-      })
-
-      const data = await res.json()
+      const url = busqueda 
+        ? `${API_BASE}/dashboard/search?q=${encodeURIComponent(busqueda)}`
+        : `${API_BASE}/dashboard/leads`;
+      
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
       if (data.success) {
-        setEditandoLead(null)
-        setRespuestaMensaje('')
-        cargarDatos()
-      } else {
-        setError(data.error)
+        setLeads(data.leads);
       }
-    } catch (err) {
-      setError('Error al cambiar estado: ' + err.message)
+    } catch (error) {
+      console.error('Error cargando leads:', error);
+    } finally {
+      setCargando(false);
     }
-  }
+  };
 
-  // NUEVO: Función para truncar mensaje
-  const truncarMensaje = (mensaje, maxCaracteres = 50) => {
-    if (!mensaje) return '-'
-    return mensaje.length > maxCaracteres 
-      ? mensaje.substring(0, maxCaracteres) + '...' 
-      : mensaje
-  }
+  // Cargar usuarios
+  const cargarUsuarios = async () => {
+    setCargando(true);
+    try {
+      const response = await fetch(`${API_BASE}/usuarios`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setUsuarios(data.usuarios);
+      } else {
+        alert(data.error || 'Solo superadmin puede ver usuarios');
+      }
+    } catch (error) {
+      console.error('Error cargando usuarios:', error);
+    } finally {
+      setCargando(false);
+    }
+  };
 
-  if (loading && !stats) {
-    return <div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>
-  }
+  // Effect para búsqueda
+  useEffect(() => {
+    if (tabActivo === 'leads') {
+      cargarLeads();
+    }
+  }, [busqueda, tabActivo]);
+
+  // Effect para cambiar tab
+  useEffect(() => {
+    if (tabActivo === 'usuarios') {
+      cargarUsuarios();
+    } else {
+      cargarLeads();
+    }
+  }, [tabActivo]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    window.location.href = '/';
+  };
+
+  const truncarMensaje = (texto, max = 50) => {
+    if (!texto) return 'Sin mensaje';
+    return texto.length > max ? texto.substring(0, max) + '...' : texto;
+  };
+
+  const formatearFecha = (fecha) => {
+    return new Date(fecha).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial' }}>
-      <h1>📊 Dashboard de Leads</h1>
-
-      {error && (
-        <div style={{ background: '#ffebee', color: '#c62828', padding: '10px', marginBottom: '20px', borderRadius: '5px' }}>
-          {error}
+    <div className="dashboard-container">
+      {/* HEADER */}
+      <div className="dashboard-header">
+        <div className="header-left">
+          <h1>📊 CRM Dashboard</h1>
+          <p>Bienvenido, <strong>{usuarioLogueado?.nombre || 'Usuario'}</strong></p>
         </div>
-      )}
+        <div className="header-right">
+          <span className="role-badge">
+            {usuarioLogueado?.role === 'superadmin' ? '🔑 Superadmin' : '👤 Admin'}
+          </span>
+          <button onClick={handleLogout} className="btn-logout">Logout</button>
+        </div>
+      </div>
 
-      {/* ESTADÍSTICAS */}
-      {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-          <div style={{ background: '#e3f2fd', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
-            <h3 style={{ margin: '0 0 10px 0', color: '#1976d2' }}>Total de Leads</h3>
-            <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#1976d2' }}>{stats.totalLeads}</div>
+      {/* TABS */}
+      <div className="dashboard-tabs">
+        <button 
+          className={`tab-btn ${tabActivo === 'leads' ? 'active' : ''}`}
+          onClick={() => setTabActivo('leads')}
+        >
+          📋 Leads
+        </button>
+        {usuarioLogueado?.role === 'superadmin' && (
+          <button 
+            className={`tab-btn ${tabActivo === 'usuarios' ? 'active' : ''}`}
+            onClick={() => setTabActivo('usuarios')}
+          >
+            👥 Usuarios
+          </button>
+        )}
+      </div>
+
+      {/* TAB: LEADS */}
+      {tabActivo === 'leads' && (
+        <div className="tab-content">
+          {/* PANEL GENERAL */}
+          <div className="panel-general">
+            <h2>📊 Panel General</h2>
+            
+            {/* Selector de empresa */}
+            {usuarioLogueado?.role === 'superadmin' && (
+              <div className="selector-empresa">
+                <label>Filtrar por empresa:</label>
+                <select value={empresaFiltro} onChange={(e) => setEmpresaFiltro(e.target.value)}>
+                  <option value="todas">Todas las empresas</option>
+                  {empresas.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Cards de estadísticas */}
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-icon">📈</div>
+                <div className="stat-content">
+                  <h3>Total Leads</h3>
+                  <p className="stat-number">{estadisticas.total || 0}</p>
+                </div>
+              </div>
+
+              <div className="stat-card pending">
+                <div className="stat-icon">⏳</div>
+                <div className="stat-content">
+                  <h3>Pendientes</h3>
+                  <p className="stat-number">{estadisticas.pendientes || 0}</p>
+                </div>
+              </div>
+
+              <div className="stat-card success">
+                <div className="stat-icon">✅</div>
+                <div className="stat-content">
+                  <h3>Contestados</h3>
+                  <p className="stat-number">{estadisticas.contestados || 0}</p>
+                </div>
+              </div>
+
+              <div className="stat-card info">
+                <div className="stat-icon">📊</div>
+                <div className="stat-content">
+                  <h3>% Contestados</h3>
+                  <p className="stat-number">{estadisticas.porcentaje_contestados || 0}%</p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {stats.porEstado && stats.porEstado.map((item) => (
-            <div key={item.estado} style={{ background: '#f3e5f5', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
-              <h3 style={{ margin: '0 0 10px 0', color: '#7b1fa2', textTransform: 'capitalize' }}>{item.estado}</h3>
-              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#7b1fa2' }}>{item.cantidad}</div>
-            </div>
-          ))}
+          {/* SECCIÓN DE BÚSQUEDA */}
+          <div className="seccion-busqueda">
+            <h2>🔍 Buscar Lead</h2>
+            <input
+              type="text"
+              placeholder="Buscar por nombre, email o teléfono..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="search-input"
+            />
+            <p className="search-hint">Escribe para buscar en tiempo real</p>
+          </div>
+
+          {/* TABLA DE LEADS */}
+          <div className="seccion-tabla">
+            <h2>📋 Leads ({leads.length})</h2>
+            
+            {cargando ? (
+              <p className="loading">Cargando...</p>
+            ) : leads.length === 0 ? (
+              <p className="no-data">No hay leads para mostrar</p>
+            ) : (
+              <div className="tabla-wrapper">
+                <table className="leads-table">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Email</th>
+                      <th>Teléfono</th>
+                      <th>Empresa</th>
+                      <th>Mensaje</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leads.map(lead => (
+                      <tr key={lead.id} className={`lead-row status-${lead.estado}`}>
+                        <td className="nombre-cell">
+                          <strong>{lead.nombre} {lead.apellidos}</strong>
+                        </td>
+                        <td>{lead.email}</td>
+                        <td>{lead.telefono}</td>
+                        <td>
+                          <span className="empresa-badge">{lead.empresa_nombre || 'N/A'}</span>
+                        </td>
+                        <td className="mensaje-cell">
+                          {truncarMensaje(lead.mensaje)}
+                        </td>
+                        <td>
+                          <span className={`estado-badge estado-${lead.estado}`}>
+                            {lead.estado === 'recibido' ? '📬 Pendiente' : '✅ Contestado'}
+                          </span>
+                        </td>
+                        <td className="acciones-cell">
+                          <button 
+                            onClick={() => setLeadSeleccionado(lead)}
+                            className="btn-ver"
+                          >
+                            Ver ficha
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* FILTROS */}
-      <div style={{ background: '#f5f5f5', padding: '15px', borderRadius: '8px', marginBottom: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-        <select
-          value={filtroEstado}
-          onChange={(e) => { setFiltroEstado(e.target.value); setPaginaActual(1) }}
-          style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-        >
-          <option value="">Todos los estados</option>
-          <option value="recibido">Recibido</option>
-          <option value="contestado">Contestado</option>
-        </select>
+      {/* TAB: USUARIOS */}
+      {tabActivo === 'usuarios' && (
+        <div className="tab-content">
+          <div className="seccion-usuarios">
+            <h2>👥 Gestión de Usuarios</h2>
+            
+            <button className="btn-crear-usuario">+ Crear nuevo usuario</button>
 
-        <select
-          value={filtroOrigen}
-          onChange={(e) => { setFiltroOrigen(e.target.value); setPaginaActual(1) }}
-          style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-        >
-          <option value="">Todos los orígenes</option>
-          <option value="formulario_web">Formulario Web</option>
-          <option value="formulario_leads">Formulario Leads</option>
-          <option value="manual">Manual</option>
-        </select>
-      </div>
-
-      {/* TABLA DE LEADS */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: '#f5f5f5' }}>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Nombre</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Email</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Teléfono</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Mensaje</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Estado</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Origen</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Fecha</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leads.map((lead) => (
-              <tr key={lead.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '12px' }}>{lead.nombre} {lead.apellidos}</td>
-                <td style={{ padding: '12px' }}>{lead.email}</td>
-                <td style={{ padding: '12px' }}>{lead.telefono}</td>
-                {/* NUEVO: Columna Mensaje */}
-                <td 
-                  style={{ 
-                    padding: '12px',
-                    maxWidth: '200px',
-                    cursor: 'pointer',
-                    color: '#0066cc',
-                    textDecoration: 'underline'
-                  }}
-                  onClick={() => setLeadSeleccionado(lead)}
-                  title={lead.mensaje || 'Sin mensaje'}
-                >
-                  {truncarMensaje(lead.mensaje)}
-                </td>
-                <td style={{ padding: '12px' }}>
-                  <span style={{
-                    background: lead.estado === 'contestado' ? '#c8e6c9' : '#ffe0b2',
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    textTransform: 'capitalize'
-                  }}>
-                    {lead.estado}
-                  </span>
-                </td>
-                <td style={{ padding: '12px', textTransform: 'capitalize' }}>{lead.origen}</td>
-                <td style={{ padding: '12px', fontSize: '12px' }}>
-                  {new Date(lead.created_at).toLocaleDateString('es-ES')}
-                </td>
-                <td style={{ padding: '12px' }}>
-                  {editandoLead === lead.id ? (
-                    <div style={{ display: 'flex', gap: '5px', flexDirection: 'column' }}>
-                      <textarea
-                        value={respuestaMensaje}
-                        onChange={(e) => setRespuestaMensaje(e.target.value)}
-                        placeholder="Mensaje de respuesta (opcional)"
-                        style={{ width: '200px', height: '60px', padding: '5px' }}
-                      />
-                      <button
-                        onClick={() => cambiarEstado(lead.id, 'contestado')}
-                        style={{ background: '#4caf50', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        Marcar Contestado
-                      </button>
-                      <button
-                        onClick={() => setEditandoLead(null)}
-                        style={{ background: '#999', color: 'white', padding: '5px 10px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setEditandoLead(lead.id)}
-                      disabled={lead.estado === 'contestado'}
-                      style={{
-                        background: lead.estado === 'contestado' ? '#ccc' : '#2196f3',
-                        color: 'white',
-                        padding: '6px 12px',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: lead.estado === 'contestado' ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      {lead.estado === 'contestado' ? 'Contestado' : 'Responder'}
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {leads.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
-          No hay leads para mostrar
+            {cargando ? (
+              <p className="loading">Cargando usuarios...</p>
+            ) : usuarios.length === 0 ? (
+              <p className="no-data">No hay usuarios registrados</p>
+            ) : (
+              <div className="tabla-wrapper">
+                <table className="usuarios-table">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Email</th>
+                      <th>Rol</th>
+                      <th>Empresa</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usuarios.map(usuario => (
+                      <tr key={usuario.id}>
+                        <td><strong>{usuario.nombre}</strong></td>
+                        <td>{usuario.email}</td>
+                        <td>
+                          <span className={`role-badge role-${usuario.role}`}>
+                            {usuario.role === 'superadmin' ? '🔑 Superadmin' : usuario.role === 'admin' ? '👤 Admin' : '👁️ Viewer'}
+                          </span>
+                        </td>
+                        <td>{usuario.nombre_empresa || 'N/A'}</td>
+                        <td>
+                          <span className={`estado-badge ${usuario.activo ? 'activo' : 'inactivo'}`}>
+                            {usuario.activo ? '✅ Activo' : '❌ Inactivo'}
+                          </span>
+                        </td>
+                        <td className="acciones-cell">
+                          <button className="btn-editar">Editar</button>
+                          <button className="btn-eliminar">Eliminar</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* NUEVO: MODAL PARA VER MENSAJE COMPLETO */}
+      {/* MODAL: FICHA DE LEAD */}
       {leadSeleccionado && (
-        <div 
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000
-          }}
-          onClick={() => setLeadSeleccionado(null)}
-        >
-          <div 
-            style={{
-              background: 'white',
-              padding: '30px',
-              borderRadius: '8px',
-              maxWidth: '600px',
-              width: '90%',
-              boxShadow: '0 5px 20px rgba(0, 0, 0, 0.3)',
-              maxHeight: '80vh',
-              overflowY: 'auto'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header del modal */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, color: '#333' }}>Detalles del Lead</h2>
-              <button
-                onClick={() => setLeadSeleccionado(null)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: '#999'
-                }}
-              >
-                ✕
-              </button>
+        <div className="modal-overlay" onClick={() => setLeadSeleccionado(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>📱 Ficha de Lead</h2>
+              <button className="btn-close" onClick={() => setLeadSeleccionado(null)}>✕</button>
             </div>
 
-            {/* Información del lead */}
-            <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '4px', marginBottom: '20px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
-                <div>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#999', fontWeight: 'bold' }}>NOMBRE</p>
-                  <p style={{ margin: '5px 0 0 0', color: '#333' }}>{leadSeleccionado.nombre} {leadSeleccionado.apellidos}</p>
+            <div className="modal-body">
+              {/* Datos personales */}
+              <div className="modal-section">
+                <h3>📋 Datos Personales</h3>
+                <div className="data-grid">
+                  <div className="data-item">
+                    <label>Nombre:</label>
+                    <p>{leadSeleccionado.nombre} {leadSeleccionado.apellidos}</p>
+                  </div>
+                  <div className="data-item">
+                    <label>Email:</label>
+                    <p>{leadSeleccionado.email}</p>
+                  </div>
+                  <div className="data-item">
+                    <label>Teléfono:</label>
+                    <p>{leadSeleccionado.telefono}</p>
+                  </div>
+                  <div className="data-item">
+                    <label>Empresa:</label>
+                    <p>{leadSeleccionado.empresa_nombre || 'N/A'}</p>
+                  </div>
+                  <div className="data-item">
+                    <label>Origen:</label>
+                    <p>{leadSeleccionado.origen}</p>
+                  </div>
+                  <div className="data-item">
+                    <label>Fecha Registro:</label>
+                    <p>{formatearFecha(leadSeleccionado.created_at)}</p>
+                  </div>
                 </div>
-                <div>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#999', fontWeight: 'bold' }}>EMAIL</p>
-                  <p style={{ margin: '5px 0 0 0', color: '#0066cc', wordBreak: 'break-all' }}>{leadSeleccionado.email}</p>
+              </div>
+
+              {/* Mensaje original */}
+              {leadSeleccionado.mensaje && (
+                <div className="modal-section">
+                  <h3>💬 Mensaje Original</h3>
+                  <div className="mensaje-content">
+                    {leadSeleccionado.mensaje}
+                  </div>
                 </div>
-                <div>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#999', fontWeight: 'bold' }}>TELÉFONO</p>
-                  <p style={{ margin: '5px 0 0 0', color: '#333' }}>{leadSeleccionado.telefono}</p>
+              )}
+
+              {/* Estado */}
+              <div className="modal-section">
+                <h3>📊 Estado</h3>
+                <div className="estado-selector">
+                  <select defaultValue={leadSeleccionado.estado} className="estado-select">
+                    <option value="recibido">📬 Pendiente de respuesta</option>
+                    <option value="contestado">✅ Contestado</option>
+                  </select>
                 </div>
-                <div>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#999', fontWeight: 'bold' }}>FECHA</p>
-                  <p style={{ margin: '5px 0 0 0', color: '#333' }}>{new Date(leadSeleccionado.created_at).toLocaleDateString('es-ES')}</p>
+              </div>
+
+              {/* Responder */}
+              <div className="modal-section">
+                <h3>📧 Responder al Lead</h3>
+                <textarea 
+                  placeholder="Escribe tu respuesta aquí..."
+                  className="respuesta-textarea"
+                />
+                <div className="responder-buttons">
+                  <button className="btn-guardar">💾 Guardar respuesta</button>
+                  <button className="btn-enviar">📧 Enviar por email</button>
                 </div>
               </div>
             </div>
 
-            {/* Mensaje */}
-            <div style={{ background: '#f0f4f8', padding: '15px', borderRadius: '4px', borderLeft: '4px solid #2196f3', marginBottom: '20px' }}>
-              <p style={{ margin: 0, fontSize: '12px', color: '#999', fontWeight: 'bold', marginBottom: '10px' }}>MENSAJE</p>
-              <p style={{ 
-                margin: 0, 
-                color: '#333', 
-                lineHeight: '1.6',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word'
-              }}>
-                {leadSeleccionado.mensaje || 'Sin mensaje'}
-              </p>
+            <div className="modal-footer">
+              <button className="btn-cerrar" onClick={() => setLeadSeleccionado(null)}>Cerrar</button>
             </div>
-
-            {/* Estado y Origen */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
-              <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '4px' }}>
-                <p style={{ margin: 0, fontSize: '12px', color: '#999', fontWeight: 'bold', marginBottom: '8px' }}>ESTADO</p>
-                <span style={{
-                  background: leadSeleccionado.estado === 'contestado' ? '#c8e6c9' : '#ffe0b2',
-                  padding: '6px 12px',
-                  borderRadius: '4px',
-                  textTransform: 'capitalize',
-                  fontWeight: 'bold'
-                }}>
-                  {leadSeleccionado.estado}
-                </span>
-              </div>
-              <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '4px' }}>
-                <p style={{ margin: 0, fontSize: '12px', color: '#999', fontWeight: 'bold', marginBottom: '8px' }}>ORIGEN</p>
-                <p style={{ margin: 0, color: '#333', textTransform: 'capitalize' }}>{leadSeleccionado.origen}</p>
-              </div>
-            </div>
-
-            {/* Botón cerrar */}
-            <button
-              onClick={() => setLeadSeleccionado(null)}
-              style={{
-                width: '100%',
-                padding: '12px',
-                background: '#2196f3',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
-            >
-              Cerrar
-            </button>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }
