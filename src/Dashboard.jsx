@@ -49,7 +49,7 @@ export default function Dashboard() {
       }
     };
     fetchMe();
-  }, []);
+  }, [token]);
 
   // Obtener estadísticas
   useEffect(() => {
