@@ -33,8 +33,10 @@ export default function Dashboard() {
   const API_BASE = 'https://app.alfredosimon.com/api';
   const token = localStorage.getItem('token');
 
-  // Obtener usuario logueado
+  // Obtener usuario logueado - CORREGIDO: Depende de token
   useEffect(() => {
+    if (!token) return;
+    
     const fetchMe = async () => {
       try {
         const response = await fetch(`${API_BASE}/auth/me`, {
@@ -49,10 +51,12 @@ export default function Dashboard() {
       }
     };
     fetchMe();
-  }, [token]);
+  }, [token, API_BASE]);
 
   // Obtener estadísticas
   useEffect(() => {
+    if (!token) return;
+    
     const fetchStats = async () => {
       try {
         const response = await fetch(`${API_BASE}/dashboard/stats`, {
@@ -67,11 +71,11 @@ export default function Dashboard() {
       }
     };
     fetchStats();
-  }, []);
+  }, [token, API_BASE]);
 
   // Obtener empresas (solo para superadmin)
   useEffect(() => {
-    if (usuarioLogueado?.role === 'superadmin') {
+    if (usuarioLogueado?.role === 'superadmin' && token) {
       const fetchEmpresas = async () => {
         try {
           const response = await fetch(`${API_BASE}/dashboard/empresas`, {
@@ -87,10 +91,11 @@ export default function Dashboard() {
       };
       fetchEmpresas();
     }
-  }, [usuarioLogueado]);
+  }, [usuarioLogueado, token, API_BASE]);
 
   // Cargar leads
   const cargarLeads = async () => {
+    if (!token) return;
     setCargando(true);
     try {
       const url = busqueda 
@@ -113,6 +118,7 @@ export default function Dashboard() {
 
   // Cargar usuarios
   const cargarUsuarios = async () => {
+    if (!token) return;
     setCargando(true);
     try {
       const response = await fetch(`${API_BASE}/usuarios`, {
@@ -136,7 +142,7 @@ export default function Dashboard() {
     if (tabActivo === 'leads') {
       cargarLeads();
     }
-  }, [busqueda, tabActivo]);
+  }, [busqueda, tabActivo, token]);
 
   // Effect para cambiar tab
   useEffect(() => {
@@ -145,7 +151,7 @@ export default function Dashboard() {
     } else {
       cargarLeads();
     }
-  }, [tabActivo]);
+  }, [tabActivo, token]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
