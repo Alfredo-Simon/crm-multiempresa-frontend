@@ -18,7 +18,7 @@ export default function Dashboard() {
   const [cargando, setCargando] = useState(false);
   const [usuarioLogueado, setUsuarioLogueado] = useState(null);
 
-  const API_BASE = 'http://localhost:5000/api';
+  const API_BASE = 'https://app.alfredosimon.com/api';
   const token = localStorage.getItem('token');
 
   // Obtener usuario logueado
