@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 
-export default function Dashboard() {
+export default function Dashboard({ usuarioLogueado: initialUsuario }) {
   const [tabActivo, setTabActivo] = useState('leads');
   const [leads, setLeads] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
@@ -16,7 +16,7 @@ export default function Dashboard() {
   const [empresas, setEmpresas] = useState([]);
   const [leadSeleccionado, setLeadSeleccionado] = useState(null);
   const [cargando, setCargando] = useState(false);
-  const [usuarioLogueado, setUsuarioLogueado] = useState(null);
+  const [usuarioLogueado, setUsuarioLogueado] = useState(initialUsuario || null);
   
   // Nuevo: Estados para modal de usuario
   const [modalUsuario, setModalUsuario] = useState(false);
@@ -32,36 +32,6 @@ export default function Dashboard() {
 
   const API_BASE = 'https://app.alfredosimon.com/api';
   const token = localStorage.getItem('token');
-
-  // Obtener usuario logueado - CORREGIDO: Depende de token
-  useEffect(() => {
-    console.log('🔄 useEffect ejecutado, token:', token ? 'SÍ' : 'NO');
-    if (!token) {
-      console.log('⚠️ No hay token, retornando');
-      return;
-    }
-    
-    const fetchMe = async () => {
-      try {
-        console.log('📡 Llamando a /auth/me...');
-        const response = await fetch(`${API_BASE}/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        console.log('📡 Respuesta recibida, status:', response.status);
-        const data = await response.json();
-        console.log('📊 Datos parseados:', data);
-        if (data.success) {
-          console.log('✅ Usuario obtenido:', data.usuario);
-          setUsuarioLogueado(data.usuario);
-        } else {
-          console.log('❌ Error en respuesta:', data);
-        }
-      } catch (error) {
-        console.error('❌ Error en fetch /auth/me:', error);
-      }
-    };
-    fetchMe();
-  }, [token, API_BASE]);
 
   // Obtener estadísticas
   useEffect(() => {

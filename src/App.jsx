@@ -55,7 +55,7 @@ export default function App() {
           </button>
         </div>
         <div style={{ padding: '20px' }}>
-          <Dashboard />
+          <Dashboard usuarioLogueado={user} />
         </div>
       </div>
     )
