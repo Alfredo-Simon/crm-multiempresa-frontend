@@ -13,6 +13,7 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
   });
   const [busqueda, setBusqueda] = useState('');
   const [empresaFiltro, setEmpresaFiltro] = useState('todas');
+  const [estadoFiltro, setEstadoFiltro] = useState('todos');
   const [empresas, setEmpresas] = useState([]);
   const [leadSeleccionado, setLeadSeleccionado] = useState(null);
   const [cargando, setCargando] = useState(false);
@@ -81,14 +82,27 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
     }
   }, [usuarioLogueado, token, API_BASE]);
 
-  // Cargar leads
+  // Recargar leads cuando cambian filtros
+  useEffect(() => {
+    if (tabActivo === 'leads') {
+      cargarLeads();
+    }
+  }, [busqueda, empresaFiltro, estadoFiltro, token]);
   const cargarLeads = async () => {
     if (!token) return;
     setCargando(true);
     try {
-      const url = busqueda 
-        ? `${API_BASE}/dashboard/search?q=${encodeURIComponent(busqueda)}`
-        : `${API_BASE}/dashboard/leads`;
+      let url = `${API_BASE}/dashboard/leads`;
+      
+      // Agregar parámetros de filtro
+      const params = new URLSearchParams();
+      if (busqueda) params.append('q', busqueda);
+      if (empresaFiltro && empresaFiltro !== 'todas') params.append('empresa_id', empresaFiltro);
+      if (estadoFiltro && estadoFiltro !== 'todos') params.append('estado', estadoFiltro);
+      
+      if (params.toString()) {
+        url += '?' + params.toString();
+      }
       
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -98,6 +112,11 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
         setLeads(data.leads);
       }
     } catch (error) {
+      console.error('Error cargando leads:', error);
+    } finally {
+      setCargando(false);
+    }
+  };
       console.error('Error cargando leads:', error);
     } finally {
       setCargando(false);
@@ -374,6 +393,17 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
                 </select>
               </div>
             )}
+
+            {/* Selector de estado para TODOS */}
+            <div className="selector-empresa">
+              <label>Filtrar por estado:</label>
+              <select value={estadoFiltro} onChange={(e) => setEstadoFiltro(e.target.value)}>
+                <option value="todos">Todos los estados</option>
+                <option value="pendiente">⏳ Pendiente</option>
+                <option value="contestado">✅ Contestado</option>
+                <option value="descartado">❌ Descartado</option>
+              </select>
+            </div>
 
             <div className="stats-grid">
               <div className="stat-card">
