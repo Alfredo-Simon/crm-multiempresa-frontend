@@ -316,6 +316,7 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
           <p>Bienvenido, <strong>{usuarioLogueado?.nombre || 'Usuario'}</strong></p>
         </div>
         <div className="header-right">
+          <span className="version-badge">v2.1.0-beta</span>
           <span className="role-badge">
             {ROLES_DISPONIBLES[usuarioLogueado?.role] || '👤 Usuario'}
           </span>
@@ -629,7 +630,7 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
                 <div className="form-group">
                   <label>Empresa</label>
                   <div className="empresa-readonly">
-                    {empresas.find(e => e.id === formUsuario.empresa_id)?.nombre || 'Tu Empresa'}
+                    {usuarioLogueado?.empresa_nombre || 'Empresa'}
                   </div>
                 </div>
               )}
