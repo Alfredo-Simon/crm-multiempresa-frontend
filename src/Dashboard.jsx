@@ -117,11 +117,6 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
       setCargando(false);
     }
   };
-      console.error('Error cargando leads:', error);
-    } finally {
-      setCargando(false);
-    }
-  };
 
   // Cargar usuarios
   const cargarUsuarios = async () => {
