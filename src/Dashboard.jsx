@@ -394,9 +394,8 @@ export default function Dashboard({ usuarioLogueado: initialUsuario }) {
               <label>Filtrar por estado:</label>
               <select value={estadoFiltro} onChange={(e) => setEstadoFiltro(e.target.value)}>
                 <option value="todos">Todos los estados</option>
-                <option value="pendiente">⏳ Pendiente</option>
-                <option value="contestado">✅ Contestado</option>
-                <option value="descartado">❌ Descartado</option>
+                <option value="recibido">📨 Recibido</option>
+                <option value="contactado">✅ Contactado</option>
               </select>
             </div>
 
